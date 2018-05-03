@@ -1,7 +1,5 @@
 enum TokenType
 {
-	ImportStatement,
-	PackageStatement,
 	Import,
 	Package,
 	OpenBracket
@@ -34,27 +32,27 @@ class Parser
 		}
 	}
 	
-	/* returns 0 if input until whitespace is equal to the token, 0 otherwise.
+	/* returns 0 if input until whitespace is equal to str, 0 otherwise.
 	 */
-	int equalsToken(char **input, int index, char *token)
+	int equalsString(char **input, int index, char *str)
 	{
 		int i = 0;
-		while (input[index + i] && token[i])
+		while (input[index + i] && str[i])
 		{
-			if (input[index] != importStr[i])
+			if (input[index + i] != str[i])
 			{
 				break;
 			}
 			i++;
 		}
-		if (i == strlen(token) && (isSpace(input[i]) || !input[i]))
+		if (i == strlen(str) && (isSpace(input[index + i]) || !input[index + i]))
 		{
 			return 0;
 		}
 		return 1;
 	}
 	
-	int getStringLiteral(input, index, &value)
+	int isStringLiteral(input, index)
 	{
 		if (input[index] != '"')
 		{
@@ -71,22 +69,34 @@ class Parser
 			}
 			i++;
 		}
-		if (isSpace(input[i]) || !input[i])
+		if (isSpace(input[index + i]) || !input[index + i])
 		{
-			if (i <= sizeof(value))
-			{
-				if (strncpy(input, value, i))
-				{
-					return 0;
-				}
-			}
+			return 0;
 		}
 		return 1;
 	}
 	
-	int getIdentifier(input, index, &curTok.value)
+	int isIdentifier(input, index)
 	{
-	
+		if (!isalpha(input[index]))
+		{
+			return 1;
+		}
+
+		int i = 0;
+		while (input[index + i])
+		{
+			if (!isalnum(input[index + i]))
+			{
+				break;
+			}
+			i++;
+		}
+		if (i > 0 && isSpace(input[index + i]) || !input[index + i])
+		{
+			return 0;
+		}
+		return 1;
 	}
 	
 	void getNextToken()
@@ -114,9 +124,9 @@ class Parser
 				curTok.type = CloseBracket;
 				break;
 			case '"':
-				if (isStringLiteral(input, index, &curTok.value))
+				if (isStringLiteral(input, index))
 				{
-					curTok.type = Identifier;
+					curTok.type = StringLiteral;
 				}
 				break;
 			case 'i':
@@ -132,7 +142,7 @@ class Parser
 				}
 				break;
 			default:
-				if (isIdentifier(input, index, &curTok.value))
+				if (isIdentifier(input, index))
 				{
 					curTok.type = Identifier;
 				}
