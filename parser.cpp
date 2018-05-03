@@ -32,58 +32,71 @@ class Parser
 		}
 	}
 	
-	/* returns 0 if input until whitespace is equal to the token, 0 otherwise.
+	/* returns 0 if input until whitespace is equal to str, 0 otherwise.
 	 */
-	int equalsToken(char **input, int index, char *token)
+	int equalsString(char **input, int index, char *str)
 	{
 		int i = 0;
-		while (input[index + i] && token[i])
+		while (input[index + i] && str[i])
 		{
-			if (input[index] != importStr[i])
+			if (input[index + i] != str[i])
 			{
 				break;
 			}
 			i++;
 		}
-		if (i == strlen(token) && (isSpace(input[i]) || !input[i]))
+		if (i == strlen(str) && (isSpace(input[index + i]) || !input[index + i]))
 		{
 			return 0;
 		}
 		return 1;
 	}
 	
-	int getStringLiteral(input, index, &value)
+	int isStringLiteral(input, index)
 	{
 		if (input[index] != '"')
 		{
 			return 1;
 		}
 
-		int i = 1;
+		int i = 0;
 		while (input[index + i] && token[i])
 		{
-			if (input[index] == '"')
+			if (input[index] == '"' && i > 0)
+			{
+				i++;
+				break;
+			}
+			i++;
+		}
+		if (isSpace(input[index + i]) || !input[index + i])
+		{
+			return 0;
+		}
+		return 1;
+	}
+	
+	int isIdentifier(input, index)
+	{
+		if (!isalpha(input[index]))
+		{
+			return 1;
+		}
+
+		int i = 0;
+		while (input[index + i])
+		{
+			if (!isalnum(input[index + i]))
 			{
 				break;
 			}
 			i++;
 		}
-		if (isSpace(input[i + 1]) || !input[i + 1])
+		if (i > 0 && isSpace(input[index + i]) || !input[index + i])
 		{
-			if (i <= sizeof(value))
-			{
-				if (strncpy(input, value, i))
-				{
-					return 0;
-				}
-			}
+			return 0;
 		}
 		return 1;
-	}
-	
-	int getIdentifier(input, index, )
-	{
-	
 	}
 	
 	void getNextToken()
@@ -99,7 +112,9 @@ class Parser
 			curTok.type = EndOfText;
 			return;
 		}
-	
+
+		curTok.type = Error;
+
 		switch (input[index])
 		{
 			case '(': 
@@ -109,13 +124,9 @@ class Parser
 				curTok.type = CloseBracket;
 				break;
 			case '"':
-				if (getStringLiteral(input, index, &curTok.value))
+				if (isStringLiteral(input, index))
 				{
-					curTok.type = Identifier;
-				}
-				else
-				{
-					curTok.type = Error;
+					curTok.type = StringLiteral;
 				}
 				break;
 			case 'i':
@@ -131,15 +142,17 @@ class Parser
 				}
 				break;
 			default:
-				// identifier
-				if (getIdentifier(input, index, &curTok.value))
+				if (isIdentifier(input, index))
 				{
 					curTok.type = Identifier;
 				}
-				else
-				{
-					curTok.type = Error;
-				}	
 		}
+		
+		if (curTok.type != Error)
+		{
+			curTok
+		}
+		
+		
 	}
 }
