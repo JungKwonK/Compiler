@@ -1,5 +1,7 @@
 enum TokenType
 {
+	ImportStatement,
+	PackageStatement,
 	Import,
 	Package,
 	OpenBracket
@@ -59,16 +61,17 @@ class Parser
 			return 1;
 		}
 
-		int i = 1;
+		int i = 0;
 		while (input[index + i] && token[i])
 		{
-			if (input[index] == '"')
+			if (input[index] == '"' && i > 0)
 			{
+				i++;
 				break;
 			}
 			i++;
 		}
-		if (isSpace(input[i + 1]) || !input[i + 1])
+		if (isSpace(input[i]) || !input[i])
 		{
 			if (i <= sizeof(value))
 			{
@@ -81,7 +84,7 @@ class Parser
 		return 1;
 	}
 	
-	int getIdentifier(input, index, )
+	int getIdentifier(input, index, &curTok.value)
 	{
 	
 	}
@@ -99,7 +102,9 @@ class Parser
 			curTok.type = EndOfText;
 			return;
 		}
-	
+
+		curTok.type = Error;
+
 		switch (input[index])
 		{
 			case '(': 
@@ -109,13 +114,9 @@ class Parser
 				curTok.type = CloseBracket;
 				break;
 			case '"':
-				if (getStringLiteral(input, index, &curTok.value))
+				if (isStringLiteral(input, index, &curTok.value))
 				{
 					curTok.type = Identifier;
-				}
-				else
-				{
-					curTok.type = Error;
 				}
 				break;
 			case 'i':
@@ -131,15 +132,17 @@ class Parser
 				}
 				break;
 			default:
-				// identifier
-				if (getIdentifier(input, index, &curTok.value))
+				if (isIdentifier(input, index, &curTok.value))
 				{
 					curTok.type = Identifier;
 				}
-				else
-				{
-					curTok.type = Error;
-				}	
 		}
+		
+		if (curTok.type != Error)
+		{
+			curTok
+		}
+		
+		
 	}
 }
