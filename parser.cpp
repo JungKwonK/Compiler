@@ -34,7 +34,7 @@ class Parser
 	
 	/* returns 0 if input until whitespace is equal to str, 0 otherwise.
 	 */
-	int equalsString(char **input, int index, char *str)
+	int equalsString(char *input, size_t index, char *str, size_t *length)
 	{
 		int i = 0;
 		while (input[index + i] && str[i])
@@ -47,12 +47,13 @@ class Parser
 		}
 		if (i == strlen(str) && (isSpace(input[index + i]) || !input[index + i]))
 		{
+			*length = i;
 			return 0;
 		}
 		return 1;
 	}
 	
-	int isStringLiteral(input, index)
+	int isStringLiteral(char *input, size_t index, size_t *length)
 	{
 		if (input[index] != '"')
 		{
@@ -62,21 +63,25 @@ class Parser
 		int i = 0;
 		while (input[index + i] && token[i])
 		{
-			if (input[index] == '"' && i > 0)
+			if (input[index + i] == '"' && i > 0)
 			{
-				i++;
-				break;
+				if (input[index + i - 1] != '\\')
+				{
+					i++;
+					break;
+				}
 			}
 			i++;
 		}
 		if (isSpace(input[index + i]) || !input[index + i])
 		{
+			*length = i;
 			return 0;
 		}
 		return 1;
 	}
 	
-	int isIdentifier(input, index)
+	int isIdentifier(char *input, size_t index, size_t *length)
 	{
 		if (!isalpha(input[index]))
 		{
@@ -94,6 +99,7 @@ class Parser
 		}
 		if (i > 0 && isSpace(input[index + i]) || !input[index + i])
 		{
+			*length = i;
 			return 0;
 		}
 		return 1;
@@ -119,30 +125,32 @@ class Parser
 		{
 			case '(': 
 				curTok.type = OpenBracket;
+				curTok.length = 1;
 				break;
 			case ')':
 				curTok.type = CloseBracket;
+				curTok.length = 1;
 				break;
 			case '"':
-				if (isStringLiteral(input, index))
+				if (isStringLiteral(input, index, &curTok.length))
 				{
 					curTok.type = StringLiteral;
 				}
 				break;
 			case 'i':
-				if (equalsToken(input, index, "import"))
+				if (equalsString(input, index, "import", &curTok.length))
 				{
 					curTok.type = Import;
 				}
 				break;
 			case 'p':
-				if (equalsToken(input, index, "package"))
+				if (equalsString(input, index, "package", &curTok.length))
 				{
 					curTok.type = Package;
 				}
 				break;
 			default:
-				if (isIdentifier(input, index))
+				if (isIdentifier(input, index, &curTok.length))
 				{
 					curTok.type = Identifier;
 				}
@@ -150,8 +158,15 @@ class Parser
 		
 		if (curTok.type != Error)
 		{
-			curTok
+			strncpy(curTok.value, input + index, curTok.length);
+			index += curTok.length;
 		}
+		else
+		{
+			std::stringstream sstr; 
+			sstr << "Unexpected token '" << input[index] << "' at position " << index;
+			throw ParserException(sstr.str(), index);
+        }
 		
 		
 	}
