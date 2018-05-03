@@ -1,0 +1,14 @@
+ROOT		-> 	PACKAGE IMPORT_REC
+PACKAGE 	-> 	package PKG_NAME
+PKG_NAME	->	^[a-zA-Z0-9]+$
+IMPORT_REC 	->	IMPORT IMPORT_REC
+			| 	IMPORT
+IMPORT 		-> 	import IMP_ID IMP_PATH
+			| 	import IMP_PATH
+			|	import ( IMP_REC )
+IMP_PATH 	-> 	^"[^\/]+(\/[^\/]+)*"$
+IMP_REC 	-> 	IMP_ID IMP_PATH IMP_REC
+			| 	IMP_ID IMP_PATH
+			| 	IMP_PATH
+IMP_ID 		-> 	^([._]|[a-zA-Z0-9]+)$
+
