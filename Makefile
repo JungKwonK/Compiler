@@ -8,13 +8,15 @@ all: $(OBJECTS) $(EXEC)
 
 .SECONDEXPANSION:
 $(EXEC): $$@.o
-	$(CXX) $^ -o $@
+	$(CXX) -g $^ -o $@
 
 %.o: %.c
-	$(CXX) -c $< -o $@
+	$(CXX) -g -c $< -o $@
+
+test: $(EXEC)
+	cd test && ./run-tests.sh $(realpath $(EXEC))
 
 clean:
-	rm -f $(EXEC) *.o
+	rm -f $(EXEC) *.o test/output.log
 
-.PHONY:
-	clean
+.PHONY: clean test

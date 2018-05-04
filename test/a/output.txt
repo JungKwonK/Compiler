@@ -1,0 +1,11 @@
+(root):
+	(package statement):
+		(package):package
+		(string literal):main
+	(import statements):
+		(import):import
+		(import item):
+			(identifier):f
+			(string literal):"fmt"
+OK
+
