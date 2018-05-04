@@ -1,8 +1,9 @@
 # Compiler
-This is our project for Compiler Construction.
+This is our project for Compiler Construction.  
+So far it consists of a top-down recursive descent parser.  
 
 ## Build
-In the project root, run `make`
+In the project's top-level directory, run `make`.  
 ## Usage
 ``` bash
 ./parser input.txt
@@ -48,17 +49,20 @@ Tests are organised as follows:
 ```
 (project root)
 |--
-	|-- test/
-		|-- mytest/
-			|-- input.txt
-			|-- output.txt
-		|-- another_test/
-			|-- input.txt
-			|-- output.txt
+    |-- test/
+        |-- mytest/
+            |-- input.txt
+            |-- output.txt
+        |-- another_test/
+            |-- input.txt
+            |-- output.txt
 
-		...and so on.
+        ...and so on.
 ```
 
 The test directories can have any name.  
 `input.txt` is the input to the parser.  
 `output.txt` is the expected output from the parser.  
+
+Test results are summarised in the terminal output.  
+Full results are found in `test/output.log`.  
