@@ -40,7 +40,7 @@ IMP_REC      -> IMP_ID STR_LIT IMP_REC
 ```
 PKG_ID       ->	^[a-zA-Z0-9]+$
 IMP_ID       -> ^([._]|[a-zA-Z0-9]+)$
-STR_LIT      -> ^".*"$
+STR_LIT      -> ^"(\\.|[^"])*"$
 ```
 
 ## Testing
