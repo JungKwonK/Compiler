@@ -1,3 +1,9 @@
+# parser exec
+/parser
+
+# testing output
+/test/output.log
+
 # Prerequisites
 *.d
 
