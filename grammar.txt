@@ -1,4 +1,4 @@
-ROOT			-> 	PACKAGE
+ROOT			-> 	PKG_STMT
 				| 	PKG_STMT IMP_STMT_REC
 PKG_STMT 		-> 	package PKG_ID
 PKG_ID			->	^[a-zA-Z0-9]+$
