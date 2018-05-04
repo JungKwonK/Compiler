@@ -7,8 +7,8 @@ OBJECTS 	= $(SOURCES:.cpp=.o)
 all: $(OBJECTS) $(EXEC)
 
 .SECONDEXPANSION:
-$(EXEC): $$@.cpp
-	$(CXX) $(LDFLAGS) $^ -o $@ $(LIBS)
+$(EXEC): $$@.o
+	$(CXX) $^ -o $@
 
 %.o: %.c
 	$(CXX) -c $< -o $@
