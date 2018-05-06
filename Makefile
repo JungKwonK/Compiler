@@ -1,5 +1,3 @@
-CXX			= clang++
-
 EXEC 		= parser
 SOURCES 	= $(EXEC).cpp
 OBJECTS 	= $(SOURCES:.cpp=.o)
@@ -10,10 +8,13 @@ all: $(OBJECTS) $(EXEC)
 
 .SECONDEXPANSION:
 $(EXEC): $$@.o
-	$(CXX) -g $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
-%.o: %.c
-	$(CXX) -g -c $< -o $@
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+debug: CXXFLAGS += -g
+debug: $(EXEC)
 
 test: $(EXEC)
 	cd $(TEST_DIR) && ./run-tests.sh $(realpath $(EXEC))
