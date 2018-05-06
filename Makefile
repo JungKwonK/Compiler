@@ -1,3 +1,5 @@
+CXXFLAGS	+= -Wall
+
 EXEC 		= parser
 SOURCES 	= $(EXEC).cpp
 OBJECTS 	= $(SOURCES:.cpp=.o)
