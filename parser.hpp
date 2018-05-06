@@ -1,12 +1,13 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
 
-#define	PARSER_STDIN_BUF_LEN	8192	// initial buffer length in bytes, when reading from stdin
-#define PARSER_EXCEP_MSG_LEN	64		// max message length in bytes for parser exceptions
+#define	PARSER_STDIN_BUF_LEN	8192	// initial length in bytes of parser stdin buffer
+#define PARSER_EXCEP_MSG_LEN	64		// max length in bytes of parser exception message
 
 enum TokenType
 {
@@ -47,13 +48,20 @@ typedef struct Token
 class ParserException : public std::exception
 {
 	char msg[PARSER_EXCEP_MSG_LEN];
-	char tok;
-	size_t pos;
+	const char tok;
+	const size_t pos;
 
 	public:
 		ParserException(char token, size_t position): tok(token), pos(position)
 		{
-			snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Unexpected token '%c' at position %zu.", tok, pos);
+			if (isprint(tok))
+			{
+				snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Unexpected token '%c' at position %zu.", tok, pos);
+			}
+			else
+			{
+				snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Unexpected token \\x%02x at position %zu.", (unsigned char) tok, pos);
+			}
 		}
 
 		virtual const char* what() const throw()
