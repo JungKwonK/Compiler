@@ -1,11 +1,10 @@
-(root):
-	(package statement):
-		(package):package
-		(string literal):main
-	(import statements):
-		(import):import
-		(import item):
-			(identifier):f
-			(string literal):"fmt"
+root:
+	package statement:
+		package:
+		string literal:
+	import statements:
+		import:
+		import item:
+			identifier:
+			string literal:
 OK
-
