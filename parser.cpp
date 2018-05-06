@@ -41,7 +41,7 @@ private:
 	 */
 	size_t parseKeyword(const char *input, const char *str)
 	{
-		int i = 0;
+		size_t i = 0;
 		while (input[i] && str[i])
 		{
 			if (input[i] != str[i])
@@ -62,7 +62,7 @@ private:
 	 */
 	size_t parseStringLiteral(const char *input)
 	{
-		int i = 0;
+		size_t i = 0;
 		if (input[i] == '"')
 		{
 			i++;
@@ -87,7 +87,7 @@ private:
 	 */
 	size_t parseIdentifier(const char *input)
 	{
-		int i = 0;
+		size_t i = 0;
 		if (isalpha(input[i]))
 		{
 			i++;
@@ -223,43 +223,43 @@ private:
 	{
 		for (int i = 0; i < indent; i++)
 		{
-			printf("\t");
+			std::cout << "\t";
 		}
 
 		switch (node->type)
 		{
 			case ASTUndefined:
-				printf("undefined");
+				std::cout << "undefined";
 				break;
 			case ASTStringLiteral:
-				printf("string literal");
+				std::cout << "string literal";
 				break;
 			case ASTIdentifier:
-				printf("identifier");
+				std::cout << "identifier";
 				break;
 			case ASTImportStatements:
-				printf("import statements");
+				std::cout << "import statements";
 				break;
 			case ASTImportItem:
-				printf("import item");
+				std::cout << "import item";
 				break;
 			case ASTPackageStatement:
-				printf("package statement");
+				std::cout << "package statement";
 				break;
 			case ASTImport:
-				printf("import");
+				std::cout << "import";
 				break;
 			case ASTPackage:
-				printf("package");
+				std::cout << "package";
 				break;
 			case ASTRoot:
-				printf("root");
+				std::cout << "root";
 				break;
 			default:
-				printf("undefined");
+				std::cout << "undefined";
 				break;
 		}
-		printf(":\n");
+		std::cout << std::endl;
 
 		if (node->left)
 		{
@@ -397,24 +397,24 @@ char *readFile(char *fname)
 
 	if (!(fp = fopen(fname, "rb")))
 	{
-		fprintf(stderr, "Couldn't open file: \"%s\"\n", fname);
+		std::cerr << "Couldn't open file: \"" << fname << "\"" << std::endl;
 		return NULL;
 	}
 
 	fseek(fp, 0, SEEK_END);
-	long fsize = ftell(fp);
+	size_t fsize = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
 	if (!(array = (char *) malloc(fsize + 1)))
 	{
-		fprintf(stderr, "Couldn't allocate memory to store the contents of file: \"%s\"\n", fname);
+		std::cerr << "Couldn't allocate memory to store the contents of file: \"" << fname << "\"" << std::endl;
 		fclose(fp);
 		return NULL;
 	}
 
 	if (fread(array, sizeof(char), fsize, fp) != fsize)
 	{
-		fprintf(stderr, "Couldn't read entire file: \"%s\"\n", fname);
+		std::cerr << "Couldn't read entire file: \"" << fname << "\"" << std::endl;
 		fclose(fp);
 		free(array);
 		return NULL;
@@ -425,16 +425,16 @@ char *readFile(char *fname)
 	return array;
 }
 
-void printUsage(FILE *fp, char *progName)
+void printUsage(std::ostream& outputStream, char *programName)
 {
-	fprintf(fp, "Usage: %s [FILE]\n", progName);
+	outputStream << "Usage: " << programName << " [FILE]" << std::endl;
 }
 
 int main(int argc, char **argv)
 {
 	if (argc > 2)
 	{
-		printUsage(stderr, argv[0]);
+		printUsage(std::cerr, argv[0]);
 	}
 
 	char *input;
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
 		// check if the user also specified an input file
 		if (argc == 2)
 		{
-			fprintf(stderr, "Detected input from stdin, ignoring file: %s\n", argv[1]);
+			std::cerr << "Detected input from stdin, ignoring file: \"" << argv[1] << "\"" << std::endl;
 		}
 
 		input = (char *) malloc(bufIncrement);
@@ -476,14 +476,14 @@ int main(int argc, char **argv)
 			input = readFile(argv[1]);
 			if (input == NULL)
 			{
-				fprintf(stderr, "Failed to retrieve input, exiting...\n");
+				std::cerr << "Failed to retrieve input, exiting..." << std::endl;
 				return 1;
 			}
 		}
 		else
 		{
-			fprintf(stderr, "No input from stdin, and no file specified, exiting...\n");
-			printUsage(stderr, argv[0]);
+			printUsage(std::cerr, argv[0]);
+			std::cerr << "No input from stdin, and no file specified, exiting..." << std::endl;
 			return 1;
 		}
 	}
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 	}
 	catch(ParserException& ex)
 	{
-		std::cout << ex.what() << std::endl;
+		std::cout << "Parser Exception: " << ex.what() << std::endl;
 	}
 	free(input);
 	return 0;
