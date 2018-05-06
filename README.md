@@ -38,8 +38,8 @@ IMP_REC      -> IMP_ID STR_LIT IMP_REC
 
 **Terminals:**  
 ```
-PKG_ID       ->	^[a-zA-Z0-9]+$
-IMP_ID       -> ^([._]|[a-zA-Z0-9]+)$
+PKG_ID       ->	^[a-zA-Z][a-zA-Z0-9]+$
+IMP_ID       -> ^([._]|[a-zA-Z][a-zA-Z0-9]+)$
 STR_LIT      -> ^"(\\.|[^"])*"$
 ```
 
