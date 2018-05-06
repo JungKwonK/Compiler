@@ -30,6 +30,8 @@ public:
 
 class Parser
 {
+	ASTNode *ast = NULL;
+
 	Token currentToken; // data about current token
 
 	const char *start;	// start of input buffer
@@ -213,14 +215,21 @@ private:
 	/* functions that represent our grammar productions */
 	ASTNode* buildAST()
 	{
+		parseNextToken();
+
 		ASTNode* pkgStmtNode = packageStatement();
 		ASTNode* impStmtNode = importStatements();
 
 		return createNode(ASTRoot, pkgStmtNode, impStmtNode);
 	}
 
-	void printAST(ASTNode *node, int indent)
+	int printAST(ASTNode *node, int indent)
 	{
+		if (!node)
+		{
+			return 0;
+		}
+
 		for (int i = 0; i < indent; i++)
 		{
 			std::cout << "\t";
@@ -270,6 +279,8 @@ private:
 		{
 			printAST(node->right, indent + 1);
 		}
+
+		return 1;
 	}
 
 	ASTNode* createNode(ASTNodeType type, ASTNode* left, ASTNode* right)
@@ -383,17 +394,25 @@ public:
 		// use this pointer to move through the input
 		input = start;
 
-		parseNextToken();
-		printAST(buildAST(), 0);
+		ast = buildAST();
+	}
+
+	/* Returns 1 if the AST was printed successfully, 0 otherwise */
+	int printAST()
+	{
+		return printAST(ast, 0);
 	}
 };
 
-/* Returns a malloc'ed char array containing the given file's contents.
- * It is up to the caller to free the memory */
+/* Returns a malloc'ed char array if fname was successfully read, NULL otherwise.
+ * The caller is responsible for freeing the returned pointer */
 char *readFile(char *fname)
 {
-	FILE *fp;
 	char *array;
+
+	size_t size;
+
+	FILE *fp;
 
 	if (!(fp = fopen(fname, "rb")))
 	{
@@ -402,17 +421,17 @@ char *readFile(char *fname)
 	}
 
 	fseek(fp, 0, SEEK_END);
-	size_t fsize = ftell(fp);
+	size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-	if (!(array = (char *) malloc(fsize + 1)))
+	if (!(array = (char *) malloc(size + 1)))
 	{
-		std::cerr << "Couldn't allocate memory to store the contents of file: \"" << fname << "\"" << std::endl;
+		std::cerr << "Not enough memory to read file: \"" << fname << "\"" << std::endl;
 		fclose(fp);
 		return NULL;
 	}
 
-	if (fread(array, sizeof(char), fsize, fp) != fsize)
+	if (fread(array, sizeof(char), size, fp) != size)
 	{
 		std::cerr << "Couldn't read entire file: \"" << fname << "\"" << std::endl;
 		fclose(fp);
@@ -420,7 +439,37 @@ char *readFile(char *fname)
 		return NULL;
 	}
 
-	array[fsize] = '\0';
+	fclose(fp);
+
+	// null-terminate the string
+	array[size] = '\0';
+
+	return array;
+}
+
+/* Returns a malloc'ed char array if stdin was successfully read, NULL otherwise.
+ * The caller is responsible for freeing the returned pointer */
+char *readStdin()
+{
+	char *array;
+
+	size_t size;
+	size_t sizeIncrement = PARSER_STDIN_BUF_LEN;
+
+	array = (char *) malloc(sizeIncrement);
+
+	size = 0;
+	while ((array[size++] = getchar()) != EOF)
+	{
+		if (size == sizeof(array))
+		{
+			// allocate more memory every time the buffer is full
+			array = (char *) realloc(array, size + sizeIncrement);
+		}
+	}
+
+	// null-terminate the string
+	array[size - 1] = '\0';
 
 	return array;
 }
@@ -442,43 +491,22 @@ int main(int argc, char **argv)
 	// check if input was piped into the program via stdin
 	if (!isatty(STDIN_FILENO))
 	{
-		int i;
-		// the initial length of the input buffer.
-		size_t bufIncrement = PARSER_STDIN_BUF_LEN;
-
 		// check if the user also specified an input file
 		if (argc == 2)
 		{
 			std::cerr << "Detected input from stdin, ignoring file: \"" << argv[1] << "\"" << std::endl;
 		}
 
-		input = (char *) malloc(bufIncrement);
-
-		i = 0;
-		while ((input[i++] = getchar()) != EOF)
-		{
-			if (i == sizeof(input))
-			{
-				// allocate more memory every time the buffer is full
-				input = (char *) realloc(input, i + bufIncrement);
-			}
-		}
-
-		// null-terminate the string that the buffer contains
-		input[i - 1] = '\0';
+		// read from stdin
+		input = readStdin();
 	}
 	else
 	{
 		// check if the user specified an input file
 		if (argc == 2)
 		{
-			// read file into buffer
+			// read from file
 			input = readFile(argv[1]);
-			if (input == NULL)
-			{
-				std::cerr << "Failed to retrieve input, exiting..." << std::endl;
-				return 1;
-			}
 		}
 		else
 		{
@@ -488,16 +516,25 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (input == NULL)
+	{
+		std::cerr << "Failed to retrieve input, exiting..." << std::endl;
+		return 1;
+	}
+
 	Parser parser;
 	try
 	{
 		parser.parse(input);
+		parser.printAST();
 		std::cout << "OK" << std::endl;
 	}
 	catch(ParserException& ex)
 	{
 		std::cout << "Parser Exception: " << ex.what() << std::endl;
 	}
+
+	// cast to void * to remove const
 	free(input);
 	return 0;
 }
