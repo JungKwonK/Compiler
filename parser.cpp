@@ -1,17 +1,16 @@
 
-#include "parser.h"
+#include "parser.hpp"
 
 #include <unistd.h>
 
+#include <cstdio>
 #include <cstring>
 #include <iostream>
-#include <sstream>
 
 class ASTNode
 {
 public:
    ASTNodeType type;
-   char value[1024] = {0};
    ASTNode* left;
    ASTNode* right;
 
@@ -31,146 +30,184 @@ public:
 
 class Parser
 {
-	Token curTok;
-	size_t index;
-	const char *input;
+	Token currentToken; // data about current token
+
+	const char *start;	// start of input buffer
+	const char *input;	// current position in input buffer
 
 private:
-	/* returns 0 if input up to whitespace is equal to str, 1 otherwise. */
-	int equalsString(const char *input, size_t index, const char *str, size_t *length)
+	/* Parses the token at input as a keyword defined by str.
+	 * Returns the length of the token if parsing was successful, 0 otherwise.
+	 */
+	size_t parseKeyword(const char *input, const char *str)
 	{
 		int i = 0;
-		while (input[index + i] && str[i])
+		while (input[i] && str[i])
 		{
-			if (input[index + i] != str[i])
+			if (input[i] != str[i])
 			{
 				break;
 			}
 			i++;
 		}
-		if (i == strlen(str) && (isspace(input[index + i]) || !input[index + i]))
+		if (i == strlen(str) && !isalpha(input[i]))
 		{
-			*length = i;
-			return 0;
+			return i;
 		}
-		return 1;
+		return 0;
 	}
 
-	/* returns 0 if input up to whitespace is a valid string literal, 1 otherwise */
-	int isStringLiteral(const char *input, size_t index, size_t *length)
+	/* Parses the token at input as a string literal.
+	 * Returns the length of the token if parsing was successful, 0 otherwise.
+	 */
+	size_t parseStringLiteral(const char *input)
 	{
-		if (input[index] != '"')
-		{
-			return 1;
-		}
-
 		int i = 0;
-		while (input[index + i])
+		if (input[i] == '"')
 		{
-			if (input[index + i] == '"' && i > 0)
+			i++;
+			while (input[i])
 			{
-				if (input[index + i - 1] != '\\')
+				if (input[i] == '"')
 				{
-					i++;
-					*length = i;
-					return 0;
+					if (input[i - 1] != '\\')
+					{
+						i++;
+						break;
+					}
 				}
+				i++;
 			}
-			i++;
 		}
-		return 1;
+		return i;
 	}
 
-	/* returns 0 if at least one alphanumeric character is found, 1 otherwise. */
-	int isIdentifier(const char *input, size_t index, size_t *length)
+	/* Parses the token at input as an identifier.
+	 * Returns the length of the token if parsing was successful, 0 otherwise.
+	 */
+	size_t parseIdentifier(const char *input)
 	{
-		if (!isalpha(input[index]))
-		{
-			return 1;
-		}
-
 		int i = 0;
-		while (input[index + i])
+		if (isalpha(input[i]))
 		{
-			if (!isalnum(input[index + i]))
-			{
-				break;
-			}
 			i++;
+			while (isalnum(input[i]))
+			{
+				i++;
+			}
 		}
-		if (i > 0)
-		{
-			*length = i;
-			return 0;
-		}
-		return 1;
+		return i;
 	}
 
-	/* parse the next token */
-	void getNextToken()
+	/* Returns 1 if the next token was parsed successfully, 0 otherwise */
+	int parseNextToken()
 	{
-		while (isspace(input[index]))
+		size_t len = 1;
+
+		currentToken.type = Undefined;
+
+		// skip whitespace
+		while (isspace(*input))
 		{
-			index++;
+			input++;
 		}
 
-		memset(curTok.value, 0, sizeof(curTok.value));
-		curTok.length = 0;
-		curTok.type = Error;
+		// skip comments
+		if (*input == '/')
+		{
+			switch (*(input + 1))
+			{
+				case '/':
+					// single line comment
+					input++;
+					while (*input && *input != '\n')
+					{
+						input++;
+					}
+					break;
+				case '*':
+					// multi-line comment
+					input++;
+					while (*input)
+					{
+						if (*input++ == '*')
+						{
+							if (*input++ == '/')
+							{
+								break;
+							}
+						}
+					}
+					break;
+			}
+		}
 
 		// check if at end of input
-		if (input[index] == 0)
+		if (*input == '\0')
 		{
-			curTok.type = EndOfText;
-			return;
+			currentToken.type = EndOfFile;
 		}
 
-		switch (input[index])
+		// parse the token
+		switch (*input)
 		{
 			case '(':
-				curTok.type = OpenBracket;
-				curTok.length = 1;
+				currentToken.type = OpenBracket;
 				break;
 			case ')':
-				curTok.type = CloseBracket;
-				curTok.length = 1;
+				currentToken.type = CloseBracket;
 				break;
 			case '"':
-				if (isStringLiteral(input, index, &curTok.length) == 0)
+				len = parseStringLiteral(input);
+				if (len)
 				{
-					curTok.type = StringLiteral;
+					currentToken.type = StringLiteral;
 				}
 				break;
 			case 'i':
-				if (equalsString(input, index, (const char *) "import", &curTok.length) == 0)
+				len = parseKeyword(input, (const char *) "import");
+				if (len)
 				{
-					curTok.type = Import;
+					currentToken.type = ImportKeyword;
 				}
 				break;
 			case 'p':
-				if (equalsString(input, index, (const char *) "package", &curTok.length) == 0)
+				len = parseKeyword(input, (const char *) "package");
+				if (len)
 				{
-					curTok.type = Package;
+					currentToken.type = PackageKeyword;
 				}
 				break;
-			default:
-				if (isIdentifier(input, index, &curTok.length) == 0)
-				{
-					curTok.type = Identifier;
-				}
 		}
 
-		if (curTok.type != Error)
+
+		// if still undefined token, check if it could be an identifier
+		if (currentToken.type == Undefined)
 		{
-			strncpy(curTok.value, input + index, curTok.length);
-			index += curTok.length;
+			len = parseIdentifier(input);
+			if (len)
+			{
+				currentToken.type = Identifier;
+			}
 		}
-		else
+
+		// if token is no longer undefined type
+		if (currentToken.type != Undefined)
 		{
-			std::stringstream sstr;
-			sstr << "Unexpected token '" << input[index] << "' at position " << index;
-			throw ParserException(sstr.str(), index);
-        }
+			// record the length of the token
+			currentToken.length = len;
+			// record the offset of the token from the beginning of the input buffer
+			currentToken.offset = input - start;
+
+			// move the input pointer past the current token
+			input += currentToken.length;
+
+			return 1;
+		}
+
+		// token could not be parsed. throw exception
+		throw ParserException(*input, input - start);
+        return 0;
 	}
 
 	/* functions that represent our grammar productions */
@@ -192,38 +229,37 @@ private:
 		switch (node->type)
 		{
 			case ASTUndefined:
-				printf("(undefined):");
+				printf("undefined");
 				break;
 			case ASTStringLiteral:
-				printf("(string literal):");
+				printf("string literal");
 				break;
 			case ASTIdentifier:
-				printf("(identifier):");
+				printf("identifier");
 				break;
 			case ASTImportStatements:
-				printf("(import statements):");
+				printf("import statements");
 				break;
 			case ASTImportItem:
-				printf("(import item):");
+				printf("import item");
 				break;
 			case ASTPackageStatement:
-				printf("(package statement):");
+				printf("package statement");
 				break;
 			case ASTImport:
-				printf("(import):");
+				printf("import");
 				break;
 			case ASTPackage:
-				printf("(package):");
+				printf("package");
 				break;
 			case ASTRoot:
-				printf("(root):");
+				printf("root");
 				break;
 			default:
-				printf("(undefined):");
+				printf("undefined");
 				break;
 		}
-		printf("%s\n", node->value);
-
+		printf(":\n");
 
 		if (node->left)
 		{
@@ -246,60 +282,23 @@ private:
 		return node;
 	}
 
-	ASTNode* createStrLitNode(char *value)
-	{
-		ASTNode* node = new ASTNode;
-		node->type = ASTStringLiteral;
-		strncpy(node->value, value, sizeof(node->value));
-
-		return node;
-	}
-
-	ASTNode* createIdentifierNode(char *value)
-	{
-		ASTNode* node = new ASTNode;
-		node->type = ASTIdentifier;
-		strncpy(node->value, value, sizeof(node->value));
-		return node;
-	}
-
-	ASTNode* createImportNode(char *value)
-	{
-		ASTNode* node = new ASTNode;
-		node->type = ASTImport;
-		strncpy(node->value, value, sizeof(node->value));
-		return node;
-	}
-
-	ASTNode* createPackageNode(char *value)
-	{
-		ASTNode* node = new ASTNode;
-		node->type = ASTPackage;
-		strncpy(node->value, value, sizeof(node->value));
-		return node;
-	}
-
 	ASTNode* packageStatement()
 	{
 		ASTNode* pkgNode;
 		ASTNode* strLitNode;
 
-		if (curTok.type != Package)
+		if (currentToken.type != PackageKeyword)
 		{
-			std::stringstream sstr;
-            sstr << "Unexpected token '" << curTok.value << "' at position " << index;
-            throw ParserException(sstr.str(), index);
+			throw ParserException(*input, input - start);
 		}
-		pkgNode = createPackageNode(curTok.value);
-		getNextToken();
-		if (curTok.type != Identifier)
+		pkgNode = createNode(ASTPackage, NULL, NULL);
+		parseNextToken();
+		if (currentToken.type != Identifier)
 		{
-			std::stringstream sstr;
-            sstr << "Unexpected token '" << curTok.value << "' at position " << index;
-            throw ParserException(sstr.str(), index);
+			throw ParserException(*input, input - start);
 		}
-		strLitNode = createStrLitNode(curTok.value);
-		getNextToken();
+		strLitNode = createNode(ASTStringLiteral, NULL, NULL);
+		parseNextToken();
 
 		return createNode(ASTPackageStatement, pkgNode, strLitNode);
 	}
@@ -308,7 +307,7 @@ private:
 	{
 		ASTNode *impStmtNode;
 		impStmtNode = importStatement();
-		if (curTok.type != EndOfText)
+		if (currentToken.type != EndOfFile)
 		{
 			return importStatements();
 		}
@@ -318,17 +317,15 @@ private:
 	ASTNode* importStatement()
 	{
 
-		if (curTok.type != Import)
+		if (currentToken.type != ImportKeyword)
 		{
-			std::stringstream sstr;
-            sstr << "Unexpected token '" << curTok.value << "' at position " << index;
-            throw ParserException(sstr.str(), index);
+			throw ParserException(*input, input - start);
 		}
-		ASTNode *impNodeA = createImportNode(curTok.value);
+		ASTNode *impNodeA = createNode(ASTImport, NULL, NULL);
 		ASTNode *impNodeB;
-		getNextToken();
+		parseNextToken();
 
-		switch (curTok.type)
+		switch (currentToken.type)
 		{
 			case Identifier:
 				// fall through
@@ -336,18 +333,16 @@ private:
 				impNodeB = imports();
 				break;
 			case OpenBracket:
-				getNextToken();
+				parseNextToken();
 				impNodeB = imports();
-				if (curTok.type == CloseBracket)
+				if (currentToken.type == CloseBracket)
 				{
-					getNextToken();
+					parseNextToken();
 					break;
 				}
 				// else fall through
 			default:
-				std::stringstream sstr;
-            	sstr << "Unexpected token '" << curTok.value << "' at position " << index;
-            	throw ParserException(sstr.str(), index);
+				throw ParserException(*input, input - start);
 		}
 
 		return createNode(ASTImportStatements, impNodeA, impNodeB);
@@ -357,24 +352,22 @@ private:
 	{
 		ASTNode *impIdNode = NULL;
 		ASTNode *impPathNode;
-		if (curTok.type == Identifier)
+		if (currentToken.type == Identifier)
 		{
-			impIdNode = createIdentifierNode(curTok.value);
-			getNextToken();
+			impIdNode = createNode(ASTIdentifier, NULL, NULL);
+			parseNextToken();
 		}
 
-		if (curTok.type != StringLiteral)
+		if (currentToken.type != StringLiteral)
 		{
-			std::stringstream sstr;
-        	sstr << "Unexpected token '" << curTok.value << "' at position " << index;
-        	throw ParserException(sstr.str(), index);
+        	throw ParserException(*input, input - start);
         }
 
-        impPathNode = createStrLitNode(curTok.value);
+        impPathNode = createNode(ASTStringLiteral, NULL, NULL);
 
-		getNextToken();
+		parseNextToken();
 
-		if (curTok.type != EndOfText)
+		if (currentToken.type != EndOfFile)
 		{
 			return imports();
 		}
@@ -385,15 +378,19 @@ private:
 public:
 	void parse(const char* str)
 	{
-		input = str;
-		index = 0;
+		// set this pointer to remember the start address of the input
+		start = str;
+		// use this pointer to move through the input
+		input = start;
 
-		getNextToken();
+		parseNextToken();
 		printAST(buildAST(), 0);
 	}
 };
 
-char *fileToCharArray(char *fname)
+/* Returns a malloc'ed char array containing the given file's contents.
+ * It is up to the caller to free the memory */
+char *readFile(char *fname)
 {
 	FILE *fp;
 	char *array;
@@ -423,7 +420,7 @@ char *fileToCharArray(char *fname)
 		return NULL;
 	}
 
-	array[fsize] = 0;
+	array[fsize] = '\0';
 
 	return array;
 }
@@ -442,30 +439,41 @@ int main(int argc, char **argv)
 
 	char *input;
 
+	// check if input was piped into the program via stdin
 	if (!isatty(STDIN_FILENO))
 	{
+		int i;
+		// the initial length of the input buffer.
+		size_t bufIncrement = PARSER_STDIN_BUF_LEN;
+
+		// check if the user also specified an input file
 		if (argc == 2)
 		{
-			printf("Detected input from stdin; ignoring file: %s\n", argv[1]);
+			fprintf(stderr, "Detected input from stdin, ignoring file: %s\n", argv[1]);
 		}
 
-		int size = PIPE_BUFFER_SIZE, i = 0;
-		input = (char *) malloc(size);
+		input = (char *) malloc(bufIncrement);
 
+		i = 0;
 		while ((input[i++] = getchar()) != EOF)
 		{
 			if (i == sizeof(input))
 			{
-				input = (char *) realloc(input, i + PIPE_BUFFER_SIZE);
+				// allocate more memory every time the buffer is full
+				input = (char *) realloc(input, i + bufIncrement);
 			}
 		}
+
+		// null-terminate the string that the buffer contains
 		input[i - 1] = '\0';
 	}
 	else
 	{
+		// check if the user specified an input file
 		if (argc == 2)
 		{
-			input = fileToCharArray(argv[1]);
+			// read file into buffer
+			input = readFile(argv[1]);
 			if (input == NULL)
 			{
 				fprintf(stderr, "Failed to retrieve input, exiting...\n");
@@ -474,7 +482,7 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			fprintf(stderr, "Error: Expected input from stdin, since no FILE was specified.\n");
+			fprintf(stderr, "No input from stdin, and no file specified, exiting...\n");
 			printUsage(stderr, argv[0]);
 			return 1;
 		}
