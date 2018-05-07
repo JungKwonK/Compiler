@@ -7,406 +7,445 @@
 #include <cstring>
 #include <iostream>
 
-class ASTNode
+AstNode::AstNode()
 {
-public:
-   ASTNodeType type;
-   ASTNode* left;
-   ASTNode* right;
+  type = AstUndefined;
+  tok.type = Undefined;
+}
 
-   ASTNode()
-   {
-      type = ASTUndefined;
-      left = NULL;
-      right = NULL;
-   }
-
-   ~ASTNode()
-   {
-      delete left;
-      delete right;
-   }
-};
-
-class Parser
+AstNode::AstNode(AstNodeType t)
 {
-	ASTNode *ast = NULL;
+  type = t;
+  tok.type = Undefined;
+}
 
-	Token currentToken; // data about current token
 
-	const char *start;	// start of input buffer
-	const char *input;	// current position in input buffer
-
-private:
-	/* Parses the token at input as a keyword defined by str.
-	 * Returns the length of the token if parsing was successful, 0 otherwise.
-	 */
-	size_t parseKeyword(const char *input, const char *str)
+AstNode::~AstNode()
+{
+	for(std::vector<AstNode *>::size_type i = 0; i != children.size(); i++)
 	{
-		size_t i = 0;
-		while (input[i] && str[i])
-		{
-			if (input[i] != str[i])
-			{
-				break;
-			}
-			i++;
-		}
-		if (i == strlen(str) && !isalpha(input[i]))
-		{
-			return i;
-		}
-		return 0;
+		delete children[i];
 	}
+}
 
-	/* Parses the token at input as a string literal.
-	 * Returns the length of the token if parsing was successful, 0 otherwise.
-	 */
-	size_t parseStringLiteral(const char *input)
+void AstNode::addChild(AstNode *node)
+{
+	children.push_back(node);
+}
+
+const std::map<const char*, TokenType> Parser::keywords = createKeywordMap();
+const std::map<const char*, TokenType> Parser::operators = createOperatorMap();
+
+/* Map operator strings to their associated token type */
+const std::map<const char*, TokenType> Parser::createKeywordMap()
+{
+  std::map<const char*, TokenType> tm;
+  tm["("] = OpenBracket;
+  tm[")"] = CloseBracket;
+  return tm;
+}
+
+/* Map keyword strings to their associated token type */
+const std::map<const char*, TokenType> Parser::createOperatorMap()
+{
+  std::map<const char*, TokenType> tm;
+  tm["package"] = Package;
+  tm["import"] = Import;
+  return tm;
+}
+
+/* Parses the token at input as a keyword defined by str.
+ * Returns the length of the token if parsing was successful, 0 otherwise.
+ */
+size_t Parser::parseKeyword(const char *input, const char *str)
+{
+	size_t i = 0;
+	while (input[i] && str[i])
 	{
-		size_t i = 0;
-		if (input[i] == '"')
+		if (input[i] != str[i])
 		{
-			i++;
-			while (input[i])
+			break;
+		}
+		i++;
+	}
+	if (i == strlen(str) && !isalpha(input[i]))
+	{
+		return i;
+	}
+	return 0;
+}
+
+/* Parses the token at input as an operator defined by str.
+ * Returns the length of the token if parsing was successful, 0 otherwise.
+ */
+size_t Parser::parseOperator(const char *input, const char *str)
+{
+	size_t i = 0;
+	while (input[i] && str[i])
+	{
+		if (input[i] != str[i])
+		{
+			break;
+		}
+		i++;
+	}
+	if (i == strlen(str))
+	{
+		return i;
+	}
+	return 0;
+}
+
+/* Parses the token at input as a string literal.
+ * Returns the length of the token if parsing was successful, 0 otherwise.
+ */
+size_t Parser::parseStringLiteral(const char *input)
+{
+	size_t i = 0;
+	if (input[i] == '"')
+	{
+		i++;
+		while (input[i])
+		{
+			if (input[i] == '"')
 			{
-				if (input[i] == '"')
+				if (input[i - 1] != '\\')
 				{
-					if (input[i - 1] != '\\')
-					{
-						i++;
-						break;
-					}
+					i++;
+					break;
 				}
-				i++;
 			}
+			i++;
 		}
-		return i;
 	}
+	return i;
+}
 
-	/* Parses the token at input as an identifier.
-	 * Returns the length of the token if parsing was successful, 0 otherwise.
-	 */
-	size_t parseIdentifier(const char *input)
+/* Parses the token at input as an identifier.
+ * Returns the length of the token if parsing was successful, 0 otherwise.
+ */
+size_t Parser::parseIdentifier(const char *input)
+{
+	size_t i = 0;
+	if (isalpha(input[i]))
 	{
-		size_t i = 0;
-		if (isalpha(input[i]))
+		i++;
+		while (isalnum(input[i]))
 		{
 			i++;
-			while (isalnum(input[i]))
-			{
-				i++;
-			}
 		}
-		return i;
+	}
+	return i;
+}
+
+/* Returns 1 if the next token was parsed successfully, 0 otherwise */
+int Parser::parseNextToken()
+{
+	size_t len = 1;
+
+	// skip whitespace
+	while (isspace(*input))
+	{
+		input++;
 	}
 
-	/* Returns 1 if the next token was parsed successfully, 0 otherwise */
-	int parseNextToken()
+	// skip comments
+	if (*input == '/')
 	{
-		size_t len = 1;
-
-		currentToken.type = Undefined;
-
-		// skip whitespace
-		while (isspace(*input))
+		switch (*(input + 1))
 		{
-			input++;
-		}
-
-		// skip comments
-		if (*input == '/')
-		{
-			switch (*(input + 1))
-			{
-				case '/':
-					// single line comment
+			case '/':
+				// single line comment
+				input++;
+				while (*input && *input != '\n')
+				{
 					input++;
-					while (*input && *input != '\n')
+				}
+				break;
+			case '*':
+				// multi-line comment
+				input++;
+				while (*input)
+				{
+					if (*input++ == '*')
 					{
-						input++;
-					}
-					break;
-				case '*':
-					// multi-line comment
-					input++;
-					while (*input)
-					{
-						if (*input++ == '*')
+						if (*input++ == '/')
 						{
-							if (*input++ == '/')
-							{
-								break;
-							}
+							break;
 						}
 					}
-					break;
-			}
+				}
+				break;
 		}
+	}
 
-		// check if at end of input
-		if (*input == '\0')
-		{
+	// check if at end of input
+	switch (*input)
+	{
+		case '\0':
 			currentToken.type = EndOfFile;
-		}
-
-		// parse the token
-		switch (*input)
-		{
-			case '(':
-				currentToken.type = OpenBracket;
-				break;
-			case ')':
-				currentToken.type = CloseBracket;
-				break;
-			case '"':
-				len = parseStringLiteral(input);
-				if (len)
-				{
-					currentToken.type = StringLiteral;
-				}
-				break;
-			case 'i':
-				len = parseKeyword(input, (const char *) "import");
-				if (len)
-				{
-					currentToken.type = ImportKeyword;
-				}
-				break;
-			case 'p':
-				len = parseKeyword(input, (const char *) "package");
-				if (len)
-				{
-					currentToken.type = PackageKeyword;
-				}
-				break;
-		}
-
-
-		// if still undefined token, check if it could be an identifier
-		if (currentToken.type == Undefined)
-		{
-			len = parseIdentifier(input);
+			break;
+		case '"':
+			len = parseStringLiteral(input);
 			if (len)
 			{
-				currentToken.type = Identifier;
+				currentToken.type = StringLiteral;
+			}
+			break;
+		default:
+			currentToken.type = Undefined;
+	}
+
+	// check if token value matches a keyword
+	if (currentToken.type == Undefined)
+	{
+		for (iter = keywords.begin(); iter != keywords.end(); iter++)
+		{
+			len = parseKeyword(input, iter->first);
+			if (len)
+			{
+				currentToken.type = iter->second;
+				break;
 			}
 		}
-
-		// if token is no longer undefined type
-		if (currentToken.type != Undefined)
-		{
-			// record the length of the token
-			currentToken.length = len;
-			// record the offset of the token from the beginning of the input buffer
-			currentToken.offset = input - start;
-
-			// move the input pointer past the current token
-			input += currentToken.length;
-
-			return 1;
-		}
-
-		// token could not be parsed. throw exception
-		throw ParserException(*input, input - start);
-        return 0;
 	}
 
-	/* functions that represent our grammar productions */
-	ASTNode* buildAST()
+	// check if token value matches an operator
+	if (currentToken.type == Undefined)
 	{
-		parseNextToken();
-
-		ASTNode* pkgStmtNode = packageStatement();
-		ASTNode* impStmtNode = importStatements();
-
-		return createNode(ASTRoot, pkgStmtNode, impStmtNode);
+		for (iter = operators.begin(); iter != operators.end(); iter++)
+		{
+			len = parseOperator(input, iter->first);
+			if (len)
+			{
+				currentToken.type = iter->second;
+				break;
+			}
+		}
 	}
 
-	int printAST(ASTNode *node, int indent)
+	// if still undefined token, check if it could be an identifier
+	if (currentToken.type == Undefined)
 	{
-		if (!node)
+		len = parseIdentifier(input);
+		if (len)
 		{
-			return 0;
+			currentToken.type = Identifier;
 		}
+	}
 
-		for (int i = 0; i < indent; i++)
-		{
-			std::cout << "\t";
-		}
+	// if token is no longer undefined type
+	if (currentToken.type != Undefined)
+	{
+		// record the length of the token
+		currentToken.length = len;
+		// record the offset of the token from the beginning of the input buffer
+		currentToken.offset = input - start;
 
-		switch (node->type)
-		{
-			case ASTUndefined:
-				std::cout << "undefined";
-				break;
-			case ASTStringLiteral:
-				std::cout << "string literal";
-				break;
-			case ASTIdentifier:
-				std::cout << "identifier";
-				break;
-			case ASTImportStatements:
-				std::cout << "import statements";
-				break;
-			case ASTImportItem:
-				std::cout << "import item";
-				break;
-			case ASTPackageStatement:
-				std::cout << "package statement";
-				break;
-			case ASTImport:
-				std::cout << "import";
-				break;
-			case ASTPackage:
-				std::cout << "package";
-				break;
-			case ASTRoot:
-				std::cout << "root";
-				break;
-			default:
-				std::cout << "undefined";
-				break;
-		}
-		std::cout << std::endl;
-
-		if (node->left)
-		{
-			printAST(node->left, indent + 1);
-		}
-
-		if (node->right)
-		{
-			printAST(node->right, indent + 1);
-		}
+		// move the input pointer past the current token
+		input += currentToken.length;
 
 		return 1;
 	}
 
-	ASTNode* createNode(ASTNodeType type, ASTNode* left, ASTNode* right)
-	{
-		ASTNode* node = new ASTNode;
-		node->type = type;
-		node->left = left;
-		node->right = right;
+	// token could not be parsed. throw exception
+	throw ParserException(*input, input - start);
+    return 0;
+}
 
-		return node;
+/* functions that represent our grammar productions */
+AstNode * Parser::buildAst()
+{
+	AstNode *node = new AstNode(AstRoot);
+
+	parseNextToken();
+	node->addChild(packageStatement());
+	node->addChild(importStatements());
+
+	return node;
+}
+
+int Parser::printAst(AstNode *node, int indent)
+{
+	if (!node)
+	{
+		return 0;
 	}
 
-	ASTNode* packageStatement()
+	for (int i = 0; i < indent; i++)
 	{
-		ASTNode* pkgNode;
-		ASTNode* strLitNode;
-
-		if (currentToken.type != PackageKeyword)
-		{
-			throw ParserException(*input, input - start);
-		}
-		pkgNode = createNode(ASTPackage, NULL, NULL);
-		parseNextToken();
-		if (currentToken.type != Identifier)
-		{
-			throw ParserException(*input, input - start);
-		}
-		strLitNode = createNode(ASTStringLiteral, NULL, NULL);
-		parseNextToken();
-
-		return createNode(ASTPackageStatement, pkgNode, strLitNode);
+		std::cout << "\t";
 	}
 
-	ASTNode* importStatements()
+	switch (node->type)
 	{
-		ASTNode *impStmtNode;
-		impStmtNode = importStatement();
-		if (currentToken.type != EndOfFile)
-		{
-			return importStatements();
-		}
-		return impStmtNode;
+		case AstUndefined:
+			std::cout << "undefined";
+			break;
+		case AstStringLiteral:
+			std::cout << "string literal";
+			break;
+		case AstIdentifier:
+			std::cout << "identifier";
+			break;
+		case AstImportStatements:
+			std::cout << "import statements";
+			break;
+		case AstImportItem:
+			std::cout << "import item";
+			break;
+		case AstPackageStatement:
+			std::cout << "package statement";
+			break;
+		case AstImport:
+			std::cout << "import";
+			break;
+		case AstPackage:
+			std::cout << "package";
+			break;
+		case AstRoot:
+			std::cout << "root";
+			break;
+		default:
+			std::cout << "undefined";
+			break;
+	}
+	std::cout << std::endl;
+
+	for(std::vector<int>::size_type i = 0; i != node->children.size(); i++)
+	{
+		printAst(node->children[i], indent + 1);
 	}
 
-	ASTNode* importStatement()
+
+	return 1;
+}
+
+AstNode * Parser::packageStatement()
+{
+	AstNode *pkgNode;
+	AstNode *strLitNode;
+
+	if (currentToken.type != Package)
 	{
-
-		if (currentToken.type != ImportKeyword)
-		{
-			throw ParserException(*input, input - start);
-		}
-		ASTNode *impNodeA = createNode(ASTImport, NULL, NULL);
-		ASTNode *impNodeB;
-		parseNextToken();
-
-		switch (currentToken.type)
-		{
-			case Identifier:
-				// fall through
-			case StringLiteral:
-				impNodeB = imports();
-				break;
-			case OpenBracket:
-				parseNextToken();
-				impNodeB = imports();
-				if (currentToken.type == CloseBracket)
-				{
-					parseNextToken();
-					break;
-				}
-				// else fall through
-			default:
-				throw ParserException(*input, input - start);
-		}
-
-		return createNode(ASTImportStatements, impNodeA, impNodeB);
+		throw ParserException(*input, input - start);
 	}
-
-	ASTNode* imports()
+	pkgNode = new AstNode(AstPackage);
+	parseNextToken();
+	if (currentToken.type != Identifier)
 	{
-		ASTNode *impIdNode = NULL;
-		ASTNode *impPathNode;
-		if (currentToken.type == Identifier)
-		{
-			impIdNode = createNode(ASTIdentifier, NULL, NULL);
+		throw ParserException(*input, input - start);
+	}
+	strLitNode = new AstNode(AstStringLiteral);
+	parseNextToken();
+
+	AstNode *node = new AstNode(AstPackageStatement);
+	node->addChild(pkgNode);
+	node->addChild(strLitNode);
+
+	return node;
+}
+
+AstNode * Parser::importStatements()
+{
+	AstNode *impStmtNode;
+	impStmtNode = importStatement();
+	if (currentToken.type != EndOfFile)
+	{
+		return importStatements();
+	}
+	return impStmtNode;
+}
+
+AstNode * Parser::importStatement()
+{
+
+	if (currentToken.type != Import)
+	{
+		throw ParserException(*input, input - start);
+	}
+	AstNode *impNodeA = new AstNode(AstImport);
+	AstNode *impNodeB;
+	parseNextToken();
+
+	switch (currentToken.type)
+	{
+		case Identifier:
+			// fall through
+		case StringLiteral:
+			impNodeB = imports();
+			break;
+		case OpenBracket:
 			parseNextToken();
-		}
+			impNodeB = imports();
+			if (currentToken.type == CloseBracket)
+			{
+				parseNextToken();
+				break;
+			}
+			// else fall through
+		default:
+			throw ParserException(*input, input - start);
+	}
 
-		if (currentToken.type != StringLiteral)
-		{
-        	throw ParserException(*input, input - start);
-        }
+	AstNode *node = new AstNode(AstImportStatements);
+	node->addChild(impNodeA);
+	node->addChild(impNodeB);
 
-        impPathNode = createNode(ASTStringLiteral, NULL, NULL);
+	return node;
+}
 
+AstNode * Parser::imports()
+{
+	AstNode *impIdNode = NULL;
+	AstNode *impPathNode;
+	if (currentToken.type == Identifier)
+	{
+		impIdNode = new AstNode(AstIdentifier);
 		parseNextToken();
-
-		if (currentToken.type != EndOfFile)
-		{
-			return imports();
-		}
-
-		return createNode(ASTImportItem, impIdNode, impPathNode);
 	}
 
-public:
-	void parse(const char* str)
+	if (currentToken.type != StringLiteral)
 	{
-		// set this pointer to remember the start address of the input
-		start = str;
-		// use this pointer to move through the input
-		input = start;
+    	throw ParserException(*input, input - start);
+    }
 
-		ast = buildAST();
-	}
+    impPathNode = new AstNode(AstStringLiteral);
 
-	/* Returns 1 if the AST was printed successfully, 0 otherwise */
-	int printAST()
+	parseNextToken();
+
+	if (currentToken.type != EndOfFile)
 	{
-		return printAST(ast, 0);
+		return imports();
 	}
-};
+
+	AstNode *node = new AstNode(AstImportItem);
+	node->addChild(impIdNode);
+	node->addChild(impPathNode);
+
+	return node;
+}
+
+
+void Parser::parse(const char *str)
+{
+	// set this pointer to remember the start address of the input
+	start = str;
+	// use this pointer to move through the input
+	input = start;
+
+	ast = buildAst();
+}
+
+/* Returns 1 if the Ast was printed successfully, 0 otherwise */
+int Parser::printAst()
+{
+	return printAst(ast, 0);
+}
 
 /* Returns a malloc'ed char array if fname was successfully read, NULL otherwise.
  * The caller is responsible for freeing the returned pointer */
-char *readFile(char *fname)
+char * readFile(char *fname)
 {
 	char *array;
 
@@ -449,7 +488,7 @@ char *readFile(char *fname)
 
 /* Returns a malloc'ed char array if stdin was successfully read, NULL otherwise.
  * The caller is responsible for freeing the returned pointer */
-char *readStdin()
+char * readStdin()
 {
 	char *array;
 
@@ -526,7 +565,7 @@ int main(int argc, char **argv)
 	try
 	{
 		parser.parse(input);
-		parser.printAST();
+		parser.printAst();
 		std::cout << "OK" << std::endl;
 	}
 	catch(ParserException& ex)
