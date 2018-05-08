@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
-#define	PARSER_STDIN_BUF_LEN	8192	// initial length in bytes of parser stdin buffer
-#define PARSER_EXCEP_MSG_LEN	64		// max length in bytes of parser exception message
+#define PARSER_STDIN_BUF_LEN    8192    // initial length in bytes of parser stdin buffer
+#define PARSER_EXCEP_MSG_LEN    64      // max length in bytes of parser exception message
 
 enum TokenType
 {
@@ -23,7 +23,7 @@ enum TokenType
 	Undefined
 };
 
-enum AstNodeType 
+enum AstNodeType
 {
    AstUndefined,
    AstStringLiteral,
@@ -39,12 +39,13 @@ enum AstNodeType
 typedef struct Token
 {
 	TokenType type;
-	
+
 	// length of the token in bytes
 	size_t length;
-	
-	// offset of the token in bytes from the beginning of the input buffer
-	size_t offset;
+
+	// line and column numbers, zero-based
+	size_t line;
+	size_t column;
 } Token;
 
 class AstNode
@@ -53,8 +54,8 @@ public:
 	AstNodeType type;
 	Token tok;
 
-	std::vector<AstNode*> children;
-	
+	std::vector<AstNode *> children;
+
 	AstNode();
 	AstNode(AstNodeType t);
 	~AstNode();
@@ -63,38 +64,30 @@ public:
 
 class Parser
 {
+public:
+	/* Tokenises and generates an abstract syntax tree
+	 * for the input beginning at str
+	 */
+	void parse(const char *str);
+
+	/* Returns 1 if the Ast was printed successfully, 0 otherwise */
+	int printAst();
+
+	/* prints the token beginning at line:column to the specified output stream
+	 */
+	void printToken(std::ostream &out, Token tok);
+
 private:
-
-	/*static const char **keywordStrings = {
-		"import",
-		"package"
-	};
-	
-	static const TokenType* keywordTokenTypes = {
-		Import,
-		Package
-	};
-	
-	static const char **operatorStrings = {
-		"(",
-		")"
-	};
-	
-	static const TokenType *operatorTokenTypes = {
-		OpenBracket,
-		CloseBracket
-	};*/
-
 	// maps strings to their associated token type
-	static const std::map<const char*, TokenType> keywords;
-	static const std::map<const char*, TokenType> operators;
+	static const std::map<const char *, TokenType> keywords;
+	static const std::map<const char *, TokenType> operators;
 
-	std::map<const char*, TokenType>::const_iterator iter;
+	std::map<const char *, TokenType>::const_iterator iter;
 
 	AstNode *ast;
 
 	// data about current token
-	Token currentToken; 
+	Token currentToken;
 
 	// start of input buffer
 	const char *start;
@@ -102,9 +95,15 @@ private:
 	// current position in input buffer
 	const char *input;
 
+	// vector holding pointers to the start of every line of input
+	std::vector<const char *> lines;
+
+	// current line of input, where 0 would mean the first line
+	size_t currentLine;
+
 	/* These functions return a map that maps strings to their token type */
-	static const std::map<const char*, TokenType> createKeywordMap();
-	static const std::map<const char*, TokenType> createOperatorMap();
+	static const std::map<const char *, TokenType> createKeywordMap();
+	static const std::map<const char *, TokenType> createOperatorMap();
 
 	/* Parses the token at input as a keyword defined by str.
 	 * Returns the length of the token if parsing was successful, 0 otherwise.
@@ -129,48 +128,41 @@ private:
 	/* Returns 1 if the next token was parsed successfully, 0 otherwise */
 	int parseNextToken();
 
-	/* functions that represent our grammar productions */
-	AstNode* buildAst();
+	/* The parser should call this every time '\n' is encountered during tokenisation */
+	void newLine(const char *where);
 
+	/* builds an abstract syntax tree */
+	AstNode * buildAst();
+
+	/* output the abtract syntax tree in text form */
 	int printAst(AstNode *node, int indent);
 
-	AstNode* packageStatement();
+	/* grammar productions */
 
-	AstNode* importStatements();
+	AstNode * packageStatement();
 
-	AstNode* importStatement();
+	AstNode * importStatements();
 
-	AstNode* imports();
+	AstNode * importStatement();
 
-public:
-	void parse(const char *str);
-
-	/* Returns 1 if the Ast was printed successfully, 0 otherwise */
-	int printAst();
+	AstNode * imports();
 };
 
+/* Currently used to report unrecognised tokens during tokenisation */
 class ParserException : public std::exception
 {
+public:
+	ParserException(Token t);
+
+	/* Returns a copy of the token to the caller */
+	Token getToken();
+
+	virtual const char *what() const throw();
+
+private:
 	char msg[PARSER_EXCEP_MSG_LEN];
-	const char tok;
-	const size_t pos;
 
-	public:
-		ParserException(char token, size_t position): tok(token), pos(position)
-		{
-			if (isprint(tok))
-			{
-				snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Unexpected token '%c' at position %zu.", tok, pos);
-			}
-			else
-			{
-				snprintf(msg, sizeof(msg) / sizeof(msg[0]), "Unexpected token \\x%02x at position %zu.", (unsigned char) tok, pos);
-			}
-		}
-
-		virtual const char *what() const throw()
-		{
-			return msg;
-		}
+	// line and column numbers, zero-based
+	const Token tok;
 };
 #endif

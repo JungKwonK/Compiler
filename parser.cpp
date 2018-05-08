@@ -1,8 +1,12 @@
 
 #include "parser.hpp"
 
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
@@ -33,25 +37,29 @@ void AstNode::addChild(AstNode *node)
 	children.push_back(node);
 }
 
-const std::map<const char*, TokenType> Parser::keywords = createKeywordMap();
-const std::map<const char*, TokenType> Parser::operators = createOperatorMap();
+const std::map<const char *, TokenType> Parser::keywords = createKeywordMap();
+const std::map<const char *, TokenType> Parser::operators = createOperatorMap();
 
 /* Map operator strings to their associated token type */
-const std::map<const char*, TokenType> Parser::createKeywordMap()
+const std::map<const char *, TokenType> Parser::createKeywordMap()
 {
-  std::map<const char*, TokenType> tm;
-  tm["("] = OpenBracket;
-  tm[")"] = CloseBracket;
-  return tm;
+	std::map<const char *, TokenType> tm;
+
+	tm["("] = OpenBracket;
+	tm[")"] = CloseBracket;
+
+	return tm;
 }
 
 /* Map keyword strings to their associated token type */
-const std::map<const char*, TokenType> Parser::createOperatorMap()
+const std::map<const char *, TokenType> Parser::createOperatorMap()
 {
-  std::map<const char*, TokenType> tm;
-  tm["package"] = Package;
-  tm["import"] = Import;
-  return tm;
+	std::map<const char *, TokenType> tm;
+
+	tm["package"] = Package;
+	tm["import"] = Import;
+
+	return tm;
 }
 
 /* Parses the token at input as a keyword defined by str.
@@ -105,7 +113,7 @@ size_t Parser::parseStringLiteral(const char *input)
 	if (input[i] == '"')
 	{
 		i++;
-		while (input[i])
+		while (input[i] && input[i] != '\n')
 		{
 			if (input[i] == '"')
 			{
@@ -141,16 +149,21 @@ size_t Parser::parseIdentifier(const char *input)
 /* Returns 1 if the next token was parsed successfully, 0 otherwise */
 int Parser::parseNextToken()
 {
-	size_t len = 1;
+	size_t len;
 
 	// skip whitespace
 	while (isspace(*input))
 	{
+		if (*input == '\n')
+		{
+			// let the parser know we've reached a new line
+			newLine(input);
+		}
 		input++;
 	}
 
 	// skip comments
-	if (*input == '/')
+	while (*input == '/')
 	{
 		switch (*(input + 1))
 		{
@@ -161,23 +174,46 @@ int Parser::parseNextToken()
 				{
 					input++;
 				}
+				if (*input == '\n')
+				{
+					// let the parser know we've reached a new line
+					newLine(input);
+				}
 				break;
 			case '*':
 				// multi-line comment
 				input++;
 				while (*input)
 				{
-					if (*input++ == '*')
+					if (*input == '\n')
 					{
-						if (*input++ == '/')
+						// let the parser know we've reached a new line
+						newLine(input);
+					}
+
+					if (*input == '*')
+					{
+						input++;
+						if (*input == '/')
 						{
+							input++;
 							break;
 						}
 					}
+
+					input++;
 				}
 				break;
 		}
 	}
+
+	len = 1;
+
+	// record the line and column numbers of the token
+	currentToken.length = len;
+	currentToken.type = Undefined;
+	currentToken.line = currentLine;
+	currentToken.column = input - lines[currentLine];
 
 	// check if at end of input
 	switch (*input)
@@ -224,7 +260,7 @@ int Parser::parseNextToken()
 		}
 	}
 
-	// if still undefined token, check if it could be an identifier
+	// if token is still undefined, check if it could be an identifier
 	if (currentToken.type == Undefined)
 	{
 		len = parseIdentifier(input);
@@ -239,8 +275,6 @@ int Parser::parseNextToken()
 	{
 		// record the length of the token
 		currentToken.length = len;
-		// record the offset of the token from the beginning of the input buffer
-		currentToken.offset = input - start;
 
 		// move the input pointer past the current token
 		input += currentToken.length;
@@ -248,9 +282,43 @@ int Parser::parseNextToken()
 		return 1;
 	}
 
-	// token could not be parsed. throw exception
-	throw ParserException(*input, input - start);
+	// token is still undefined, so we throw an exception
+	throw ParserException(currentToken);
     return 0;
+}
+
+/* Called by the parser when it encounters '\n' during tokenisation
+ *
+ * parameters
+ *     where: the address where '\n' was found
+ */
+void Parser::newLine(const char *where)
+{
+	lines.push_back(where + 1);
+	currentLine++;
+}
+
+/* prints the token beginning at line:column to the specified output stream
+ * if there are non-printable characters in the token, their hex value is printed
+ */
+void Parser::printToken(std::ostream &out, Token tok)
+{
+	const char *ch = lines[tok.line] + tok.column;
+	const char *end = ch + tok.length;
+
+	while (ch < end)
+	{
+		if (isprint(*ch))
+		{
+			out << *ch;
+		}
+		else
+		{
+			out << std::hex << *ch;
+		}
+
+		ch++;
+	}
 }
 
 /* functions that represent our grammar productions */
@@ -328,13 +396,13 @@ AstNode * Parser::packageStatement()
 
 	if (currentToken.type != Package)
 	{
-		throw ParserException(*input, input - start);
+		throw ParserException(currentToken);
 	}
 	pkgNode = new AstNode(AstPackage);
 	parseNextToken();
 	if (currentToken.type != Identifier)
 	{
-		throw ParserException(*input, input - start);
+		throw ParserException(currentToken);
 	}
 	strLitNode = new AstNode(AstStringLiteral);
 	parseNextToken();
@@ -362,7 +430,7 @@ AstNode * Parser::importStatement()
 
 	if (currentToken.type != Import)
 	{
-		throw ParserException(*input, input - start);
+		throw ParserException(currentToken);
 	}
 	AstNode *impNodeA = new AstNode(AstImport);
 	AstNode *impNodeB;
@@ -385,7 +453,7 @@ AstNode * Parser::importStatement()
 			}
 			// else fall through
 		default:
-			throw ParserException(*input, input - start);
+			throw ParserException(currentToken);
 	}
 
 	AstNode *node = new AstNode(AstImportStatements);
@@ -407,7 +475,7 @@ AstNode * Parser::imports()
 
 	if (currentToken.type != StringLiteral)
 	{
-    	throw ParserException(*input, input - start);
+    	throw ParserException(currentToken);
     }
 
     impPathNode = new AstNode(AstStringLiteral);
@@ -429,10 +497,14 @@ AstNode * Parser::imports()
 
 void Parser::parse(const char *str)
 {
-	// set this pointer to remember the start address of the input
-	start = str;
 	// use this pointer to move through the input
-	input = start;
+	input = str;
+
+	// record the start of the input string as the start of a new line
+	lines.push_back(input);
+
+	// set the current line of input that we are on (0 means line 1)
+	currentLine = 0;
 
 	ast = buildAst();
 }
@@ -443,42 +515,68 @@ int Parser::printAst()
 	return printAst(ast, 0);
 }
 
+/* expects zero-based line and column numbers */
+ParserException::ParserException(Token t): tok(t)
+{
+	snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%zu:%zu: Unexpected token", tok.line + 1, tok.column + 1);
+}
+
+Token ParserException::getToken()
+{
+	return tok;
+}
+
+const char *ParserException::what() const throw()
+{
+	return msg;
+}
+
 /* Returns a malloc'ed char array if fname was successfully read, NULL otherwise.
  * The caller is responsible for freeing the returned pointer */
-char * readFile(char *fname)
+char * readFile(const char *fname)
 {
 	char *array;
+	ssize_t size;
 
-	size_t size;
+	struct stat finfo;
+	int fd;
 
-	FILE *fp;
-
-	if (!(fp = fopen(fname, "rb")))
+	if (!(fd = open(fname, O_RDONLY)))
 	{
-		std::cerr << "Couldn't open file: \"" << fname << "\"" << std::endl;
+		std::cerr << "'" << fname << "': Couldn't open file" << std::endl;
 		return NULL;
 	}
 
-	fseek(fp, 0, SEEK_END);
-	size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	if (fstat(fd, &finfo))
+	{
+		std::cerr << fname << ": " << std::strerror(errno) << std::endl;
+		return NULL;
+	}
+
+	if (!S_ISREG(finfo.st_mode))
+	{
+		std::cerr << "'" << fname << "': Not a regular file" << std::endl;
+		return NULL;
+	}
+
+	size = finfo.st_size;
 
 	if (!(array = (char *) malloc(size + 1)))
 	{
-		std::cerr << "Not enough memory to read file: \"" << fname << "\"" << std::endl;
-		fclose(fp);
+		std::cerr << "'" << fname << "': Not enough memory to read file" << std::endl;
+		close(fd);
 		return NULL;
 	}
 
-	if (fread(array, sizeof(char), size, fp) != size)
+	if (read(fd, array, size) != size)
 	{
-		std::cerr << "Couldn't read entire file: \"" << fname << "\"" << std::endl;
-		fclose(fp);
+		std::cerr << "'" << fname << "': Couldn't read entire file" << std::endl;
+		close(fd);
 		free(array);
 		return NULL;
 	}
 
-	fclose(fp);
+	close(fd);
 
 	// null-terminate the string
 	array[size] = '\0';
@@ -491,19 +589,29 @@ char * readFile(char *fname)
 char * readStdin()
 {
 	char *array;
-
 	size_t size;
+
 	size_t sizeIncrement = PARSER_STDIN_BUF_LEN;
 
-	array = (char *) malloc(sizeIncrement);
+	if (!(array = (char *) malloc(sizeIncrement)))
+	{
+		std::cerr << "Not enough memory to read input" << std::endl;
+		return NULL;
+	}
 
 	size = 0;
 	while ((array[size++] = getchar()) != EOF)
 	{
-		if (size == sizeof(array))
+		if (size == sizeof(array) - sizeof(array[0]))
 		{
 			// allocate more memory every time the buffer is full
-			array = (char *) realloc(array, size + sizeIncrement);
+			if (!(array = (char *) realloc(array, size + sizeIncrement)))
+			{
+				std::cerr << "Not enough memory to read input" << std::endl;
+				free(array);
+				return NULL;
+			}
+
 		}
 	}
 
@@ -568,9 +676,11 @@ int main(int argc, char **argv)
 		parser.printAst();
 		std::cout << "OK" << std::endl;
 	}
-	catch(ParserException& ex)
+	catch(ParserException& e)
 	{
-		std::cout << "Parser Exception: " << ex.what() << std::endl;
+		std::cerr << e.what() << ": ";
+		parser.printToken(std::cerr, e.getToken());
+		std::cerr << std::endl;
 	}
 
 	// cast to void * to remove const
