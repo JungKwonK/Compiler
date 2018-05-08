@@ -1,12 +1,8 @@
-
 #include "parser.hpp"
+#include "util.hpp"
 
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
-#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
@@ -356,7 +352,7 @@ int Parser::printAst(AstNode *node, int indent)
 		case AstIdentifier:
 			std::cout << "identifier";
 			break;
-		case AstImportStatements:
+		case AstImportStatement:
 			std::cout << "import statements";
 			break;
 		case AstImportItem:
@@ -427,13 +423,8 @@ AstNode * Parser::importStatements()
 
 AstNode * Parser::importStatement()
 {
-
-	if (currentToken.type != Import)
-	{
-		throw ParserException(currentToken);
-	}
-	AstNode *impNodeA = new AstNode(AstImport);
-	AstNode *impNodeB;
+	AstNode *node = new AstNode(AstImportStatement);
+	node->addChild(new AstNode(AstImport));
 	parseNextToken();
 
 	switch (currentToken.type)
@@ -441,25 +432,19 @@ AstNode * Parser::importStatement()
 		case Identifier:
 			// fall through
 		case StringLiteral:
-			impNodeB = imports();
+			node->addChild(imports());
 			break;
 		case OpenBracket:
-			parseNextToken();
-			impNodeB = imports();
-			if (currentToken.type == CloseBracket)
+			while (currentToken.type != CloseBracket)
 			{
 				parseNextToken();
-				break;
+				node->addChild(imports());
 			}
-			// else fall through
+			parseNextToken();
+			break;
 		default:
 			throw ParserException(currentToken);
 	}
-
-	AstNode *node = new AstNode(AstImportStatements);
-	node->addChild(impNodeA);
-	node->addChild(impNodeB);
-
 	return node;
 }
 
@@ -482,13 +467,11 @@ AstNode * Parser::imports()
 
 	parseNextToken();
 
-	if (currentToken.type != EndOfFile)
-	{
-		return imports();
-	}
-
 	AstNode *node = new AstNode(AstImportItem);
-	node->addChild(impIdNode);
+	if (impIdNode)
+	{
+		node->addChild(impIdNode);
+	}
 	node->addChild(impPathNode);
 
 	return node;
@@ -521,6 +504,7 @@ ParserException::ParserException(Token t): tok(t)
 	snprintf(msg, sizeof(msg) / sizeof(msg[0]), "%zu:%zu: Unexpected token", tok.line + 1, tok.column + 1);
 }
 
+/* Returns a copy of the Token tok which caused the exception */
 Token ParserException::getToken()
 {
 	return tok;
@@ -529,96 +513,6 @@ Token ParserException::getToken()
 const char *ParserException::what() const throw()
 {
 	return msg;
-}
-
-/* Returns a malloc'ed char array if fname was successfully read, NULL otherwise.
- * The caller is responsible for freeing the returned pointer */
-char * readFile(const char *fname)
-{
-	char *array;
-	ssize_t size;
-
-	struct stat finfo;
-	int fd;
-
-	if (!(fd = open(fname, O_RDONLY)))
-	{
-		std::cerr << "'" << fname << "': Couldn't open file" << std::endl;
-		return NULL;
-	}
-
-	if (fstat(fd, &finfo))
-	{
-		std::cerr << fname << ": " << std::strerror(errno) << std::endl;
-		return NULL;
-	}
-
-	if (!S_ISREG(finfo.st_mode))
-	{
-		std::cerr << "'" << fname << "': Not a regular file" << std::endl;
-		return NULL;
-	}
-
-	size = finfo.st_size;
-
-	if (!(array = (char *) malloc(size + 1)))
-	{
-		std::cerr << "'" << fname << "': Not enough memory to read file" << std::endl;
-		close(fd);
-		return NULL;
-	}
-
-	if (read(fd, array, size) != size)
-	{
-		std::cerr << "'" << fname << "': Couldn't read entire file" << std::endl;
-		close(fd);
-		free(array);
-		return NULL;
-	}
-
-	close(fd);
-
-	// null-terminate the string
-	array[size] = '\0';
-
-	return array;
-}
-
-/* Returns a malloc'ed char array if stdin was successfully read, NULL otherwise.
- * The caller is responsible for freeing the returned pointer */
-char * readStdin()
-{
-	char *array;
-	size_t size;
-
-	size_t sizeIncrement = PARSER_STDIN_BUF_LEN;
-
-	if (!(array = (char *) malloc(sizeIncrement)))
-	{
-		std::cerr << "Not enough memory to read input" << std::endl;
-		return NULL;
-	}
-
-	size = 0;
-	while ((array[size++] = getchar()) != EOF)
-	{
-		if (size == sizeof(array) - sizeof(array[0]))
-		{
-			// allocate more memory every time the buffer is full
-			if (!(array = (char *) realloc(array, size + sizeIncrement)))
-			{
-				std::cerr << "Not enough memory to read input" << std::endl;
-				free(array);
-				return NULL;
-			}
-
-		}
-	}
-
-	// null-terminate the string
-	array[size - 1] = '\0';
-
-	return array;
 }
 
 void printUsage(std::ostream& outputStream, char *programName)
@@ -645,7 +539,7 @@ int main(int argc, char **argv)
 		}
 
 		// read from stdin
-		input = readStdin();
+		input = util::readStdin();
 	}
 	else
 	{
@@ -653,7 +547,7 @@ int main(int argc, char **argv)
 		if (argc == 2)
 		{
 			// read from file
-			input = readFile(argv[1]);
+			input = util::readFile(argv[1]);
 		}
 		else
 		{

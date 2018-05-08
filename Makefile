@@ -1,7 +1,7 @@
 CXXFLAGS	+= -Wall
 
 EXEC 		= parser
-SOURCES 	= $(EXEC).cpp
+SOURCES 	= $(EXEC).cpp util.cpp
 OBJECTS 	= $(SOURCES:.cpp=.o)
 
 TEST_DIR	= test
@@ -9,7 +9,7 @@ TEST_DIR	= test
 all: $(OBJECTS) $(EXEC)
 
 .SECONDEXPANSION:
-$(EXEC): $$@.o
+$(EXEC): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 %.o: %.cpp

@@ -8,7 +8,6 @@
 #include <stdexcept>
 #include <vector>
 
-#define PARSER_STDIN_BUF_LEN    8192    // initial length in bytes of parser stdin buffer
 #define PARSER_EXCEP_MSG_LEN    64      // max length in bytes of parser exception message
 
 enum TokenType
@@ -29,7 +28,7 @@ enum AstNodeType
    AstStringLiteral,
    AstIdentifier,
    AstImportItem,
-   AstImportStatements,
+   AstImportStatement,
    AstPackageStatement,
    AstImport,
    AstPackage,
