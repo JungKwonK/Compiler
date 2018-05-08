@@ -1,0 +1,10 @@
+root
+	package statement
+		package
+		string literal
+	import statements
+		import
+		import item
+			identifier
+			string literal
+OK
