@@ -1,11 +1,9 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
-#include <cctype>
-#include <cstdio>
-#include <cstdlib>
+#include <cstddef>
 #include <map>
-#include <stdexcept>
+#include <ostream>
 #include <vector>
 
 #define PARSER_EXCEP_MSG_LEN    64      // max length in bytes of parser exception message
@@ -40,11 +38,11 @@ typedef struct Token
 	TokenType type;
 
 	// length of the token in bytes
-	size_t length;
+	std::size_t length;
 
 	// line and column numbers, zero-based
-	size_t line;
-	size_t column;
+	std::size_t line;
+	std::size_t column;
 } Token;
 
 class AstNode
@@ -98,7 +96,7 @@ private:
 	std::vector<const char *> lines;
 
 	// current line of input, where 0 would mean the first line
-	size_t currentLine;
+	std::size_t currentLine;
 
 	/* These functions return a map that maps strings to their token type */
 	static const std::map<const char *, TokenType> createKeywordMap();
@@ -107,22 +105,22 @@ private:
 	/* Parses the token at input as a keyword defined by str.
 	 * Returns the length of the token if parsing was successful, 0 otherwise.
 	 */
-	size_t parseKeyword(const char *input, const char *str);
+	std::size_t parseKeyword(const char *input, const char *str);
 
 	/* Parses the token at input as an operator defined by str.
 	 * Returns the length of the token if parsing was successful, 0 otherwise.
 	 */
-	size_t parseOperator(const char *input, const char *str);
+	std::size_t parseOperator(const char *input, const char *str);
 
 	/* Parses the token at input as a string literal.
 	 * Returns the length of the token if parsing was successful, 0 otherwise.
 	 */
-	size_t parseStringLiteral(const char *input);
+	std::size_t parseStringLiteral(const char *input);
 
 	/* Parses the token at input as an identifier.
 	 * Returns the length of the token if parsing was successful, 0 otherwise.
 	 */
-	size_t parseIdentifier(const char *input);
+	std::size_t parseIdentifier(const char *input);
 
 	/* Returns 1 if the next token was parsed successfully, 0 otherwise */
 	int parseNextToken();

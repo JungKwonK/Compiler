@@ -6,11 +6,10 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-
-#define UTIL_STDIN_BUF_LEN   8192    // initial length in bytes of the buffer to hold input from stdin
 
 namespace util
 {
@@ -72,9 +71,9 @@ namespace util
 	char * readStdin()
 	{
 		char *array;
-		size_t size;
+		std::size_t size;
 
-		size_t sizeIncrement = UTIL_STDIN_BUF_LEN;
+		std::size_t sizeIncrement = UTIL_STDIN_BUF_LEN;
 
 		if (!(array = (char *) malloc(sizeIncrement)))
 		{

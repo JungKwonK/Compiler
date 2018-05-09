@@ -3,7 +3,9 @@
 
 #include <unistd.h>
 
+#include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 
@@ -61,9 +63,9 @@ const std::map<const char *, TokenType> Parser::createOperatorMap()
 /* Parses the token at input as a keyword defined by str.
  * Returns the length of the token if parsing was successful, 0 otherwise.
  */
-size_t Parser::parseKeyword(const char *input, const char *str)
+std::size_t Parser::parseKeyword(const char *input, const char *str)
 {
-	size_t i = 0;
+	std::size_t i = 0;
 	while (input[i] && str[i])
 	{
 		if (input[i] != str[i])
@@ -82,9 +84,9 @@ size_t Parser::parseKeyword(const char *input, const char *str)
 /* Parses the token at input as an operator defined by str.
  * Returns the length of the token if parsing was successful, 0 otherwise.
  */
-size_t Parser::parseOperator(const char *input, const char *str)
+std::size_t Parser::parseOperator(const char *input, const char *str)
 {
-	size_t i = 0;
+	std::size_t i = 0;
 	while (input[i] && str[i])
 	{
 		if (input[i] != str[i])
@@ -103,9 +105,9 @@ size_t Parser::parseOperator(const char *input, const char *str)
 /* Parses the token at input as a string literal.
  * Returns the length of the token if parsing was successful, 0 otherwise.
  */
-size_t Parser::parseStringLiteral(const char *input)
+std::size_t Parser::parseStringLiteral(const char *input)
 {
-	size_t i = 0;
+	std::size_t i = 0;
 	if (input[i] == '"')
 	{
 		i++;
@@ -128,9 +130,9 @@ size_t Parser::parseStringLiteral(const char *input)
 /* Parses the token at input as an identifier.
  * Returns the length of the token if parsing was successful, 0 otherwise.
  */
-size_t Parser::parseIdentifier(const char *input)
+std::size_t Parser::parseIdentifier(const char *input)
 {
-	size_t i = 0;
+	std::size_t i = 0;
 	if (isalpha(input[i]))
 	{
 		i++;
@@ -145,7 +147,7 @@ size_t Parser::parseIdentifier(const char *input)
 /* Returns 1 if the next token was parsed successfully, 0 otherwise */
 int Parser::parseNextToken()
 {
-	size_t len;
+	std::size_t len;
 
 	// skip whitespace
 	while (isspace(*input))
