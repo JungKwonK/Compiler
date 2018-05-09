@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include <cerrno>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -84,7 +83,7 @@ namespace util
 		}
 
 		size = 0;
-		while ((array[size++] = getchar()) != EOF)
+		while (std::cin >> std::noskipws >> array[size++])
 		{
 			if (size == sizeof(array) - sizeof(array[0]))
 			{
