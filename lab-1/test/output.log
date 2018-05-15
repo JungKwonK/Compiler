@@ -1,0 +1,23 @@
+test results Tue May 15 22:08:13 CEST 2018
+Test basic/: [PASS]		----------------------------------BEGIN-OUTPUT---------------------------------		root
+	package statement
+		package
+		string literal
+	import statements
+		import
+		import item
+			identifier
+			string literal
+OK		-----------------------------------END-OUTPUT----------------------------------
+Test multiple-import/: [PASS]		----------------------------------BEGIN-OUTPUT---------------------------------		root
+	package statement
+		package
+		string literal
+	import statements
+		import
+		import item
+			identifier
+			string literal
+		import item
+			string literal
+OK		-----------------------------------END-OUTPUT----------------------------------
