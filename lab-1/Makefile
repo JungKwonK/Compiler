@@ -8,7 +8,6 @@ TEST_DIR	= test
 
 all: $(OBJECTS) $(EXEC)
 
-.SECONDEXPANSION:
 $(EXEC): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
