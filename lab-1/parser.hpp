@@ -86,9 +86,6 @@ private:
 	// data about current token
 	Token currentToken;
 
-	// start of input buffer
-	const char *start;
-
 	// current position in input buffer
 	const char *input;
 

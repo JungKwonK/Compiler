@@ -1,5 +1,8 @@
 # Compiler
 These are our lab exercises for Compiler Construction.  
+Participants:  
+* Brendan Meath
+* Jung Kwon Kim
 
 ### lab-1
 A lexer and top-down recursive descent parser written in C++.  

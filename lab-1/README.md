@@ -43,7 +43,7 @@ STR_LIT      -> ^"(\\.|[^"])*"$
 ```
 
 ## Testing
-To test the project run `make test`  
+To test the program after building it, run `make test`  
 Tests are organised as follows:  
 ```
 (project root)
