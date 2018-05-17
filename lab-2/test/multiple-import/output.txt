@@ -1,0 +1,16 @@
+root
+	undefined
+		package statement
+			package statement
+				string literal
+				identifier
+		import statements
+			import
+				string literal
+				undefined
+					import item
+						identifier
+						string literal
+					import item
+						identifier
+						string literal
