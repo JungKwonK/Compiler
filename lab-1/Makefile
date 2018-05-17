@@ -23,4 +23,4 @@ test: $(EXEC)
 clean:
 	rm -f $(EXEC) *.o $(TEST_DIR)/output.log
 
-.PHONY: clean test
+.PHONY: clean test debug
