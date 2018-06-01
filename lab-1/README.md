@@ -2,7 +2,7 @@
 This is a top-down recursive descent parser.  
 
 ## Build
-In the project's top-level directory, run `make`.  
+In the lab-1 folder, run `make`.  
 ## Usage
 ``` bash
 ./parser input.txt

@@ -3,7 +3,7 @@ A parser and lexer made with Bison and Flex.
 Written in C++.
 
 ## Build
-In the project's top-level directory, run `make`.  
+In the lab-2 folder, run `make`.  
 ## Usage
 ``` bash
 ./parser input.txt
