@@ -38,6 +38,6 @@ test: $(EXEC)
 	cd $(TEST_DIR) && ./run-tests.sh $(realpath $(EXEC))
 
 clean:
-	rm -f  $(BUILT_FILES) 
+	rm -f  $(BUILT_FILES)
 
 .PHONY: clean test debug
