@@ -52,7 +52,7 @@ STRINGLITERAL    -> ^"(\\.|[^"])*"$
 To test the program after building it, run `make test`  
 Tests are organised as follows:  
 ```
-(project root)
+lab-2/
 |--
     |-- test/
         |-- mytest/
